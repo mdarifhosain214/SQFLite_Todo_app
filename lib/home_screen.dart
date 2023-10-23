@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:sqflite_todo_app/sqflite_helper.dart';
+import 'package:geolocator/geolocator.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -17,6 +18,27 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(() {});
   }
 
+  String latitudeValue = '';
+  String langtitudeValue = '';
+  bool isLoaded = false;
+  void getLocation() async {
+    LocationPermission permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied ||
+        permission == LocationPermission.deniedForever) {
+      print("Give the permition");
+      LocationPermission permissionLocation =
+          await Geolocator.requestPermission();
+    } else {
+      isLoaded = true;
+
+      Position position = await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.high);
+      langtitudeValue = position.longitude.toString();
+      latitudeValue = position.latitude.toString();
+      setState(() {});
+    }
+  }
+
   @override
   void initState() {
     _refreshJournals();
@@ -28,15 +50,17 @@ class _HomeScreenState extends State<HomeScreen> {
   final TextEditingController _descriptionEditingController =
       TextEditingController();
   Future<void> _addItem() async {
-    await SQLHelper.createItem(
-        _titleEditingController.text, _descriptionEditingController.text);
+    await SQLHelper.createItem(_titleEditingController.text, latitudeValue,
+        _descriptionEditingController.text);
+    getLocation();
     _refreshJournals();
     print("....number of items ${_journals.length}");
   }
 
   Future<void> updateItem(int id) async {
-    await SQLHelper.updateItem(
-        id, _titleEditingController.text, _descriptionEditingController.text);
+    await SQLHelper.updateItem(id, _titleEditingController.text, latitudeValue,
+        _descriptionEditingController.text);
+    getLocation();
     _refreshJournals();
   }
 
@@ -88,9 +112,11 @@ class _HomeScreenState extends State<HomeScreen> {
                         onPressed: () async {
                           if (id == null) {
                             await _addItem();
+                            getLocation();
                           }
                           if (id != null) {
                             await updateItem(id);
+                            getLocation();
                           }
                           _titleEditingController.text = '';
                           _descriptionEditingController.text = '';
@@ -123,9 +149,16 @@ class _HomeScreenState extends State<HomeScreen> {
                     child: Text(_journals[index]['id'].toString())),
                 title: Text(_journals[index]['title']),
                 subtitle: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(_journals[index]['description']),
                     Text(_journals[index]['createAt']),
+                    Row(
+                      children: [
+                        Icon(Icons.location_on),
+                        Text(_journals[index]['location']),
+                      ],
+                    )
                   ],
                 ),
                 trailing: SizedBox(
